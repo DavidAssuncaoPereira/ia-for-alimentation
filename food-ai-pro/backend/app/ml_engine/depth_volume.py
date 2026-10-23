@@ -44,9 +44,26 @@ class DepthVolumeEngine:
                 plate_box = item['box']
                 break
 
+        h, w = depth_map.shape
+        img_area = h * w
+
+        # Check for single large item (close-up)
+        close_up_detected = False
         if plate_mask is None or plate_box is None:
+            if len(items) == 1 and not items[0].get('is_reference', False):
+                item_mask = items[0]['mask']
+                item_area = np.count_nonzero(item_mask)
+                if item_area / img_area > 0.4: # Item fills > 40% of image
+                    close_up_detected = True
+
+        if close_up_detected:
+            # We don't have a plate, and it's a close up. We will signal this to pipeline.py.
+            px_per_cm = min(h, w) / 26.0 # Dummy value, will be overridden
+            z_base = np.percentile(depth_map, 15)
+            for item in items:
+                item['is_close_up'] = True
+        elif plate_mask is None or plate_box is None:
             # Fallback if no plate detected: assume center crop scale
-            h, w = depth_map.shape
             px_per_cm = min(h, w) / plate_diameter_cm
             z_base = np.percentile(depth_map, 15)
         else:

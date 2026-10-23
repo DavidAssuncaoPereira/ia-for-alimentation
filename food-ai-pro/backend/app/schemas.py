@@ -49,3 +49,4 @@ class FoodSearchResponseItem(BaseModel):
     protein_100g: float
     carbs_100g: float
     fat_100g: float
+    typical_unit_weight_g: Optional[float] = None
