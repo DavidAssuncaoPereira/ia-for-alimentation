@@ -1,6 +1,12 @@
 import sqlite3
 import os
 from rapidfuzz import process, fuzz
+import re
+
+def tokenize(text):
+    if not text:
+        return ""
+    return " ".join(re.findall(r'\b\w+\b', text.lower()))
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "nutrition.db")
 
@@ -27,7 +33,8 @@ def init_db():
             protein_100g REAL NOT NULL,
             carbs_100g REAL NOT NULL,
             fat_100g REAL NOT NULL,
-            fiber_100g REAL NOT NULL
+            fiber_100g REAL NOT NULL,
+            typical_unit_weight_g REAL
         )
     ''')
 
@@ -75,7 +82,7 @@ def fuzzy_search_food(query: str, limit: int = 5):
     # Simple direct/FTS search
     c.execute('''
         SELECT f.id, f.slug, f.name_pt, f.name_en, f.category, f.cooking_method,
-               f.density_g_cm3, f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g, f.fiber_100g
+               f.density_g_cm3, f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g, f.fiber_100g, f.typical_unit_weight_g
         FROM foods f
         JOIN foods_fts fts ON f.name_pt = fts.name_pt
         WHERE foods_fts MATCH ?
@@ -90,10 +97,11 @@ def fuzzy_search_food(query: str, limit: int = 5):
         all_foods = [dict(row) for row in c.fetchall()]
 
         # We search against a combined string
-        choices = {food['id']: f"{food['name_pt']} {food['name_en']}" for food in all_foods}
+        choices = {food['id']: f"{tokenize(food['name_pt'])} {tokenize(food['name_en'])}" for food in all_foods}
+        query_tokenized = tokenize(query)
 
         # Get top matches
-        matches = process.extract(query, choices, scorer=fuzz.WRatio, limit=limit)
+        matches = process.extract(query_tokenized, choices, scorer=fuzz.token_set_ratio, limit=limit)
 
         # Merge results, avoiding duplicates
         existing_ids = {r['id'] for r in results}

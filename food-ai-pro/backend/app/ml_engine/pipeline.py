@@ -60,9 +60,13 @@ class Pipeline:
                 food_db = db_matches[0]
 
                 # Calculate macros based on volume
-                volume_cm3 = item['volume_cm3']
-                density = food_db['density_g_cm3']
-                weight_g = volume_cm3 * density
+                if item.get('is_close_up', False) and food_db.get('typical_unit_weight_g'):
+                    weight_g = food_db['typical_unit_weight_g']
+                    volume_cm3 = weight_g / food_db['density_g_cm3']
+                else:
+                    volume_cm3 = item['volume_cm3']
+                    density = food_db['density_g_cm3']
+                    weight_g = volume_cm3 * density
 
                 multiplier = weight_g / 100.0
 
